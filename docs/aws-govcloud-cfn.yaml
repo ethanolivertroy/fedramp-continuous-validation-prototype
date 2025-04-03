@@ -1,0 +1,114 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'FedRAMP Continuous Validation Tool - Lambda Deployment'
+
+Parameters:
+  S3Buckets:
+    Type: String
+    Description: Comma-separated list of S3 buckets to validate
+    Default: ""
+  
+  DynamoDBTables:
+    Type: String
+    Description: Comma-separated list of DynamoDB tables to validate
+    Default: ""
+  
+  RDSInstances:
+    Type: String
+    Description: Comma-separated list of RDS instances to validate
+    Default: ""
+  
+  ReportsBucket:
+    Type: String
+    Description: S3 bucket to store validation reports
+  
+  ScheduleExpression:
+    Type: String
+    Description: Schedule expression for running the validation
+    Default: "cron(0 1 1 * ? *)"  # 1:00 AM on the 1st of every month
+
+Resources:
+  ValidationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws-us-gov:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: FedRAMPValidationPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetEncryptionConfiguration
+                  - s3:GetBucketEncryption
+                Resource: !Sub "arn:aws-us-gov:s3:::*"
+              - Effect: Allow
+                Action:
+                  - dynamodb:DescribeTable
+                Resource: !Sub "arn:aws-us-gov:dynamodb:${AWS::Region}:${AWS::AccountId}:table/*"
+              - Effect: Allow
+                Action:
+                  - rds:DescribeDBInstances
+                Resource: !Sub "arn:aws-us-gov:rds:${AWS::Region}:${AWS::AccountId}:db:*"
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                Resource: !Sub "arn:aws-us-gov:s3:::${ReportsBucket}/*"
+  
+  ValidationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: check_encryption.lambda_handler
+      Role: !GetAtt ValidationRole.Arn
+      Runtime: python3.10
+      Timeout: 300
+      MemorySize: 256
+      Environment:
+        Variables:
+          S3_BUCKETS: !Ref S3Buckets
+          DYNAMODB_TABLES: !Ref DynamoDBTables
+          RDS_INSTANCES: !Ref RDSInstances
+          OUTPUT_S3_BUCKET: !Ref ReportsBucket
+      Code:
+        S3Bucket: PLACEHOLDER_BUCKET  # Replace with your deployment bucket
+        S3Key: lambda_package.zip
+  
+  ValidationSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Schedule for FedRAMP Validation
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ValidationFunction.Arn
+          Id: ValidationTarget
+  
+  ValidationPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ValidationFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ValidationSchedule.Arn
+  
+  ValidationLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ValidationFunction}"
+      RetentionInDays: 90
+
+Outputs:
+  ValidationFunctionArn:
+    Description: ARN of the validation Lambda function
+    Value: !GetAtt ValidationFunction.Arn
+  
+  ValidationScheduleArn:
+    Description: ARN of the scheduled event rule
+    Value: !GetAtt ValidationSchedule.Arn

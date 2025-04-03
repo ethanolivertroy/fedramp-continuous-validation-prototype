@@ -156,6 +156,17 @@ docker run --env-file .env -v ./reports:/app/reports fedramp-validator validate 
 
 The `.github/workflows/example-ci.yml` file demonstrates how to integrate the validation into a CI/CD pipeline with GitHub Actions.
 
+### FedRAMP-Authorized Cloud Deployment
+
+For details on how to deploy this tool in FedRAMP-authorized cloud environments, refer to the [FedRAMP Cloud Deployment Guide](docs/fedramp_cloud_deployment.md). This includes:
+
+- AWS GovCloud Lambda and ECS deployment options
+- Azure Government Functions deployment
+- Security considerations
+- Compliance documentation guidance
+
+An AWS CloudFormation template for GovCloud deployment is included in `docs/aws-govcloud-cfn.yaml`.
+
 ## Extending the Tool
 
 ### Adding New Cloud Providers
