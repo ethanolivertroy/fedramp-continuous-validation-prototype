@@ -117,6 +117,45 @@ The JSON report structure follows this format:
 }
 ```
 
+## Scheduled Execution
+
+The tool can be set up to run automatically on a regular schedule using various methods:
+
+### Using Cron
+
+A sample cron script is provided in `cron-example.sh` that can be scheduled to run at your preferred frequency:
+
+```bash
+# Make the script executable
+chmod +x cron-example.sh
+
+# Edit your crontab
+crontab -e
+
+# Add one of these lines:
+# Run weekly (every Sunday at 1:00 AM)
+0 1 * * 0 /path/to/fedramp-continuous-validation-prototype/cron-example.sh
+
+# Run monthly (1st day of month at 2:00 AM)
+0 2 1 * * /path/to/fedramp-continuous-validation-prototype/cron-example.sh
+```
+
+### Using Docker
+
+The included Docker setup allows for containerized execution:
+
+```bash
+# Build the Docker image
+docker build -t fedramp-validator .
+
+# Run the validation
+docker run --env-file .env -v ./reports:/app/reports fedramp-validator validate --provider aws --s3-buckets bucket1,bucket2
+```
+
+### CI/CD Integration
+
+The `.github/workflows/example-ci.yml` file demonstrates how to integrate the validation into a CI/CD pipeline with GitHub Actions.
+
 ## Extending the Tool
 
 ### Adding New Cloud Providers
