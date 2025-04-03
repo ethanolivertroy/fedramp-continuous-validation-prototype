@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  fedramp-validator:
+    build: .
+    volumes:
+      - ./reports:/app/reports
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+    command: validate --provider aws --s3-buckets ${S3_BUCKETS} --dynamodb-tables ${DYNAMODB_TABLES} --rds-instances ${RDS_INSTANCES} --output-dir /app/reports

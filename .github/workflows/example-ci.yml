@@ -1,0 +1,52 @@
+name: FedRAMP Validation
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Run daily at midnight
+  workflow_dispatch:     # Allow manual triggering
+
+jobs:
+  validate-encryption:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run validation
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+        run: |
+          python -m src.main validate \
+            --provider aws \
+            --s3-buckets ${{ secrets.S3_BUCKETS }} \
+            --dynamodb-tables ${{ secrets.DYNAMODB_TABLES }} \
+            --rds-instances ${{ secrets.RDS_INSTANCES }} \
+            --output-dir ./reports
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: encryption-validation-reports
+          path: ./reports/*.json
+
+      - name: Check compliance status
+        id: check-compliance
+        run: |
+          if grep -q '"all_encrypted": false' ./reports/*.json; then
+            echo "❌ Non-compliant resources detected!"
+            exit 1
+          else
+            echo "✅ All resources are compliant with encryption requirements"
+          fi
